@@ -1,4 +1,4 @@
-#Implementation of ResNet using PyTorch
+# Implementation of ResNet using PyTorch
 
 ## Todos
 - [x] Dataloaders for TinyImageNet, Dogs and Cifar10
