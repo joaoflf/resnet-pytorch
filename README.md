@@ -3,8 +3,8 @@
 ## Todos
 - [x] Dataloaders for TinyImageNet, Dogs and Cifar10
 - [x] Train with imported ResNet from torchvision
-- [ ] Implement residual block
-- [ ] Resnet34
+- [x] Implement residual block
+- [x] Resnet34
 - [ ] Hyper-Parameters via CLI
 - [ ] Save logs and checkpoints with hyperparameters in name
 - [ ] Image preprocessing

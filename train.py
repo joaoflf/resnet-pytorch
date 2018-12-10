@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from datetime import datetime
 from tensorboardX import SummaryWriter
 
-from model import ResNetImported
+from models.resnet import ResNet
 from dataloaders.dogs_dataloader import DogsDataLoader
 from dataloaders.cifar10_dataloader import Cifar10DataLoader
 from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
@@ -53,7 +53,7 @@ def train(model, dataloader, loss_fn, optim, num_epochs=1, print_every=100):
 tiny_imagenet_dataloader = TinyImagenetDataLoader()
 
 
-model = ResNetImported(200).cuda()
+model = ResNet().type(dtype)
 loss_fn = nn.CrossEntropyLoss().type(dtype)
 optimizer = optim.Adam(model.parameters(), lr= 1e-3)
 
