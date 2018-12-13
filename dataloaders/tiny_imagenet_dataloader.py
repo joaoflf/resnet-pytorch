@@ -7,7 +7,7 @@ import torchvision.transforms as transforms
 
 class TinyImagenetDataLoader():
     def __init__(self):
-    
+        self.name = 'TinyImgNet'    
         # The numbers are the mean and std provided in PyTorch documentation to be used for models pretrained on ImageNet data
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         train_root= './dataloaders/datasets/tiny-imagenet/train'
@@ -25,7 +25,10 @@ class TinyImagenetDataLoader():
             transforms.ToTensor(),
             normalize]))
 
-        self.train= DataLoader(train_data, batch_size=100, shuffle=True)
-        self.val = DataLoader(validation_data, batch_size=10 ,shuffle=False)
-        self.test = DataLoader(validation_data, batch_size=10 ,shuffle=False)
+        self.train= DataLoader(train_data, batch_size=50, shuffle=True,
+                num_workers=4, pin_memory=True)
+        self.val = DataLoader(validation_data, batch_size=50 ,shuffle=False,
+                num_workers=4, pin_memory=True)
+        self.test = DataLoader(validation_data, batch_size=50 ,shuffle=False,
+                num_workers=4, pin_memory=True)
 

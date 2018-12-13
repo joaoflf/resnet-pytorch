@@ -57,6 +57,7 @@ class DogsDataLoader():
             transforms.ToTensor()
         ])
 
+        self.name = 'dogs'
         dataset = DogsDataset('./dataloaders/datasets/dogs', transform=transform)
         self.train = DataLoader(dataset, batch_size=40, sampler=ChunkSampler(NUM_TRAIN, 0))
         self.val = DataLoader(dataset, batch_size=40, sampler=ChunkSampler(NUM_VAL, NUM_TRAIN))

@@ -26,11 +26,12 @@ class Cifar10DataLoader:
             transforms.Resize((224, 224)),
             transforms.ToTensor()
         ])
-
+        self.name = 'cifar10'
         print('Downloading dataset...')
         train_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=True, download=True, transform=transform)
-        self.train = DataLoader(train_set, batch_size=40, sampler=ChunkSampler(NUM_TRAIN, 0))
+        self.train = DataLoader(train_set, batch_size=100,
+                sampler=ChunkSampler(NUM_TRAIN, 0), num_workers=4)
         val_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=True, download=True, transform=transform)
-        self.val = DataLoader(val_set, batch_size=40, sampler=ChunkSampler(NUM_VAL, NUM_TRAIN))
+        self.val = DataLoader(val_set, batch_size=100, sampler=ChunkSampler(NUM_VAL, NUM_TRAIN), num_workers=4)
         test_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=False, download=True, transform=transform)
-        self.test = DataLoader(test_set, batch_size=40)
+        self.test = DataLoader(test_set, batch_size=100, num_workers=4)

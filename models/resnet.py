@@ -111,8 +111,9 @@ class ResNet(nn.Module):
     """
     NN Module containing a full ResNet34 model
     """
-    def __init__(self):
+    def __init__(self, num_classes):
         super().__init__()
+        self.name = 'ResNet34'
         self.model = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=2),
             nn.AvgPool2d(3, stride=2, padding=1),
@@ -134,7 +135,7 @@ class ResNet(nn.Module):
             ResidualBlock(512, 512),
             nn.AdaptiveAvgPool2d(1),
             Flatten(),
-            nn.Linear(512, 200)
+            nn.Linear(512, num_classes)
         )
         self.model.apply(self.init_weights)
 
@@ -145,6 +146,6 @@ class ResNet(nn.Module):
         """
         Initialisation for conv layer weights
         """
-        if isinstance(layer) == nn.Conv2d:
+        if isinstance(layer, nn.Conv2d):
             torch.nn.init.xavier_uniform_(layer.weight)
             layer.bias.data.fill_(0.01)
