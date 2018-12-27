@@ -47,7 +47,7 @@ def main():
         num_classes = 200
     elif args.dataset == 'dogs':
         dataloader = DogsDataLoader()
-        num_classes = 120
+        num_classes = 121
     else:
         dataloader = Cifar10DataLoader()
         num_classes = 10

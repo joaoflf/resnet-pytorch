@@ -4,8 +4,6 @@ import torch.optim as optim
 from torch.autograd import Variable
 from datetime import datetime
 from tensorboardX import SummaryWriter
-from models.resnet import ResNet
-from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
 
 class Trainer():
 
@@ -46,7 +44,7 @@ class Trainer():
                 scores = self.model(x)
                 val_loss = self.loss_fn(scores, y)
                 _, preds = torch.max(scores, 1)
-                val_corrects += torch.sum(preds == y.data)
+                val_corrects += torch.sum(preds == y)
         return val_loss, val_corrects
 
     def check_test_set(self):
@@ -63,9 +61,10 @@ class Trainer():
                 scores = self.model(x)
                 test_loss = self.loss_fn(scores, y)
                 _, preds = torch.max(scores, 1)
-                test_corrects += torch.sum(preds == y.data)
+                test_corrects += torch.sum(preds == y)
         test_acc = test_corrects.double() / total
-        print('Got %d / %d correct (%.2f%%) \n' % (test_corrects, total, test_acc))
+        print('Test Set : got %d / %d correct (%.2f%%) | Test Loss: %.4f \n' %
+                (test_corrects, total, test_acc * 100, test_loss.item()))
 
     def train(self):
         step = 0
@@ -88,7 +87,7 @@ class Trainer():
 
                 self.optimizer.step()
 
-                running_corrects += torch.sum(preds == y.data)
+                running_corrects += torch.sum(preds == y)
                 self.writer.add_scalars('Metrics', {'loss': loss.item()}, step)
 
                 if (t+1) % 100 == 0:
@@ -117,8 +116,8 @@ class Trainer():
                   (epoch+1, loss.item(), train_acc))
             print('Saving checkpoint for epoch %d' % (epoch+1))
             torch.save({
-                'model_state_dict': self.model.state_dict,
-                'optimizer_state_dict': self.optimizer.state_dict,
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
                 'model_state': self.model_state
                 }, 'checkpoints/'+self.name+'.pt')
 

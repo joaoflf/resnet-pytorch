@@ -6,15 +6,15 @@ from dataloaders.dogs_dataloader import DogsDataLoader
 from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
 
 dtype = torch.cuda.FloatTensor
-model = ResNet().type(dtype)
-#data_loader = Cifar10DataLoader()
+model = ResNet(10).type(dtype)
+data_loader = Cifar10DataLoader()
 #data_loader = DogsDataLoader()
-data_loader = TinyImagenetDataLoader() 
+#data_loader = TinyImagenetDataLoader() 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def load_checkpoint(path, model):
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model_state_dict'])
-    print('Loaded checkpoint at epoch %d' % checkpoint['epoch'])
+    print('Loaded checkpoint at epoch %d' % checkpoint['model_state']['current_epoch'])
 
 def check_accuracy(model, loader):
     correct = 0
@@ -30,11 +30,14 @@ def check_accuracy(model, loader):
             total += y.size(0)
             correct += (predicted == y).sum().item()
 
+            loss_fn = torch.nn.CrossEntropyLoss().type(dtype)
+            loss = loss_fn(outputs, y)
 
-    acc = float(correct)/total
-    print('Got %d / %d correct (%.2f%%) \n' % (correct, total, 100 * acc))
+    acc = float(correct)/total * 100
+    print('Got %d / %d correct (%.2f%%) | Loss: %.4f \n' %
+            (correct, total, acc, loss.item()))
 
-load_checkpoint('checkpoints/last_checkpoint.pt', model)
+load_checkpoint('checkpoints/cifar10_ResNet34_20epochs_21-12_12:09.pt', model)
 
 print('Train Accuracy:')
 check_accuracy(model, data_loader.train)
