@@ -14,7 +14,8 @@ class TinyImagenetDataLoader():
         val_root= './dataloaders/datasets/tiny-imagenet/val'
 
         train_data = datasets.ImageFolder(train_root,
-            transform=transforms.Compose([transforms.RandomResizedCrop(224),
+            transform=transforms.Compose([transforms.Resize(256),
+            transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize]))
@@ -25,10 +26,12 @@ class TinyImagenetDataLoader():
             transforms.ToTensor(),
             normalize]))
 
-        self.train= DataLoader(train_data, batch_size=50, shuffle=True,
+        BATCH_SIZE = 20
+
+        self.train= DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True,
                 num_workers=4, pin_memory=True)
-        self.val = DataLoader(validation_data, batch_size=50 ,shuffle=False,
+        self.val = DataLoader(validation_data, batch_size=BATCH_SIZE ,shuffle=False,
                 num_workers=4, pin_memory=True)
-        self.test = DataLoader(validation_data, batch_size=50 ,shuffle=False,
+        self.test = DataLoader(validation_data, batch_size=BATCH_SIZE ,shuffle=False,
                 num_workers=4, pin_memory=True)
 

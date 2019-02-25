@@ -16,8 +16,9 @@ class ChunkSampler(sampler.Sampler):
     def __len__(self):
         return self.num_samples
 
-NUM_TRAIN = 49000
+NUM_TRAIN = 1000
 NUM_VAL = 1000
+BATCH_SIZE = 40
 dtype = torch.cuda.FloatTensor
 
 class Cifar10DataLoader:
@@ -29,9 +30,9 @@ class Cifar10DataLoader:
         self.name = 'cifar10'
         print('Downloading dataset...')
         train_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=True, download=True, transform=transform)
-        self.train = DataLoader(train_set, batch_size=100,
+        self.train = DataLoader(train_set, batch_size=BATCH_SIZE,
                 sampler=ChunkSampler(NUM_TRAIN, 0), num_workers=4)
         val_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=True, download=True, transform=transform)
-        self.val = DataLoader(val_set, batch_size=100, sampler=ChunkSampler(NUM_VAL, NUM_TRAIN), num_workers=4)
+        self.val = DataLoader(val_set, batch_size=BATCH_SIZE, sampler=ChunkSampler(NUM_VAL, NUM_TRAIN), num_workers=4)
         test_set = dset.CIFAR10('./dataloaders/datasets/cifar10', train=False, download=True, transform=transform)
-        self.test = DataLoader(test_set, batch_size=100, num_workers=4)
+        self.test = DataLoader(test_set, batch_size=BATCH_SIZE, num_workers=4)

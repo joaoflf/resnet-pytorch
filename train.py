@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from models.resnet import ResNet
+from models.resnet import ResNet34, ResNet50
 from dataloaders.dogs_dataloader import DogsDataLoader
 from dataloaders.cifar10_dataloader import Cifar10DataLoader
 from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
@@ -17,7 +17,7 @@ parser.add_argument('--dataset', metavar='DATASET', default='tiny_imagenet',
                     choices = ['tiny_imagenet', 'dogs', 'cifar10'],
                     help='name of dataset  (default: tiny_imagenet)')
 parser.add_argument('--model', metavar='MODEL', default='resnet34',
-                    choices = ['resnet34'],
+        choices = ['resnet34', 'resnet50'],
                     help='name of model arch  (default: resnet34)')
 parser.add_argument('--optimizer', metavar='OPTIM', default='momentum',
                     choices = ['momentum', 'adam'],
@@ -42,6 +42,7 @@ def main():
     dtype = torch.cuda.FloatTensor
 
     model=None
+    scheduler=None
     if args.dataset == 'tiny_imagenet':
         dataloader = TinyImagenetDataLoader()
         num_classes = 200
@@ -53,7 +54,9 @@ def main():
         num_classes = 10
 
     if args.model == 'resnet34':
-        model = ResNet(num_classes).type(dtype)
+        model = ResNet34(num_classes).type(dtype)
+    elif args.model == 'resnet50':
+        model = ResNet50(num_classes).type(dtype)
 
     if args.optimizer == 'momentum':
         optimizer = optim.SGD(model.parameters(), lr=args.lr,

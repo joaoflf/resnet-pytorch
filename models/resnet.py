@@ -1,10 +1,9 @@
 """
 This module defines the ResNet model (built from scratch)
 It contains several classes representing the building blocks of the model,
-and a main class ResNet with the ResNet34 model.
-The ResNet class is the one to import to get the usable model.
+and the full ResNet34 and ResNet50 models
 """
-
+import math
 import torch
 import torch.nn as nn
 DTYPE = torch.cuda.FloatTensor
@@ -12,18 +11,13 @@ DTYPE = torch.cuda.FloatTensor
 class Flatten(nn.Module):
     """
     NN module to flatten a tensor from 4D to 2D
-
     Flattens a 4D tensor outputed from a Convolution (N,C,H,W),
     to a 2D tensor ready to be consumed by a Linear layer (N,C*H*W)
     """
     def forward(self, x):
         """
         Get the dimensions of the input and reshape it to (N,-1)
-
         Use PyTorch's Tensor view method to reshape the input to (N,C*H*W)
-
-        Returns:
-            Tensor: a flattened PyTorch Tensor
         """
         num = x.shape[0]
         return x.view(num, -1)
@@ -39,9 +33,10 @@ class ResidualLayer(nn.Module):
         downsampling (boolean): indicates if dimension downsampling occurred
         res_input (Tensor): the residual block input (identity)
     """
-    def __init__(self, res_input, downsampling):
+    def __init__(self, res_input, projection, downsampling=False):
         super().__init__()
         self.downsampling = downsampling
+        self.projection = projection
         self.res_input = res_input
 
     def forward(self, x):
@@ -55,10 +50,11 @@ class ResidualLayer(nn.Module):
         Returns
             Tensor: sum between residual block identity and input
         """
-        if self.downsampling:
+        if self.projection:
+            stride = 2 if self.downsampling else 1
             shortcut_conv = nn.Sequential(
                 nn.Conv2d(self.res_input.shape[1], x.shape[1],
-                          kernel_size=1, stride=2, padding=0),
+                          kernel_size=1, stride=stride, padding=0),
                 nn.BatchNorm2d(x.shape[1])
             ).type(DTYPE)
             output = shortcut_conv(self.res_input) + x
@@ -78,20 +74,38 @@ class ResidualBlock(nn.Module):
         output_channels (int): number of channels to output
         downsampling (boolean): indicates if dimension downsampling occurs
     """
-    def __init__(self, input_channels, output_channels, downsampling=False):
+    def __init__(self, input_channels, output_channels, downsampling=False,
+            bottleneck=False, bottleneck_factor=4):       
         super().__init__()
 
         self.downsampling = downsampling
+        self.projection = input_channels != output_channels
         stride = 2 if downsampling else 1
-        self.model = nn.Sequential(
-            nn.Conv2d(input_channels, output_channels, kernel_size=3,
-                      stride=stride, padding=1),
-            nn.BatchNorm2d(output_channels),
-            nn.ReLU(),
-            nn.Conv2d(output_channels, output_channels, kernel_size=3,
-                      stride=1, padding=1),
-            nn.BatchNorm2d(output_channels)
-        )
+        bottleneck_channels = int(input_channels/bottleneck_factor)
+        if bottleneck:
+            self.model = nn.Sequential(
+                nn.Conv2d(input_channels, bottleneck_channels, kernel_size=1,
+                          stride=stride, padding=0),
+                nn.BatchNorm2d(bottleneck_channels),
+                nn.ReLU(),
+                nn.Conv2d(bottleneck_channels, bottleneck_channels, kernel_size=3,
+                          stride=1, padding=1),
+                nn.BatchNorm2d(bottleneck_channels),
+                nn.ReLU(),
+                nn.Conv2d(bottleneck_channels, output_channels, kernel_size=1,
+                          stride=1, padding=0),
+                nn.BatchNorm2d(output_channels)
+            ) 
+        else:
+            self.model = nn.Sequential(
+                nn.Conv2d(input_channels, output_channels, kernel_size=3,
+                          stride=stride, padding=1),
+                nn.BatchNorm2d(output_channels),
+                nn.ReLU(),
+                nn.Conv2d(output_channels, output_channels, kernel_size=3,
+                          stride=1, padding=1),
+                nn.BatchNorm2d(output_channels)
+            )
 
     def forward(self, x):
         """
@@ -102,12 +116,12 @@ class ResidualBlock(nn.Module):
             Tensor: final output of the residual block
         """
         output = self.model(x)
-        residual_layer = ResidualLayer(x, self.downsampling).type(DTYPE)
+        residual_layer = ResidualLayer(x, self.projection, self.downsampling).type(DTYPE)
         output = residual_layer(output)
         relu = nn.ReLU()
         return relu(output)
 
-class ResNet(nn.Module):
+class ResNet34(nn.Module):
     """
     NN Module containing a full ResNet34 model
     """
@@ -137,15 +151,60 @@ class ResNet(nn.Module):
             Flatten(),
             nn.Linear(512, num_classes)
         )
-        self.model.apply(self.init_weights)
+        self._init_weights()
 
     def forward(self, x):
         return self.model(x)
 
-    def init_weights(self, layer):
-        """
-        Initialisation for conv layer weights
-        """
-        if isinstance(layer, nn.Conv2d):
-            torch.nn.init.xavier_uniform_(layer.weight)
-            layer.bias.data.fill_(0.01)
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+class ResNet50(nn.Module):
+    """
+    NN Module containing a full ResNet34 model
+    """
+    def __init__(self, num_classes):
+        super().__init__()
+        self.name = 'ResNet50'
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3),
+            nn.MaxPool2d(3, stride=2, padding=1),
+            ResidualBlock(64, 256, bottleneck=True, bottleneck_factor=1),
+            ResidualBlock(256, 256, bottleneck=True),
+            ResidualBlock(256, 256, bottleneck=True),
+            ResidualBlock(256, 512, bottleneck=True, downsampling=True, bottleneck_factor=2),
+            ResidualBlock(512, 512, bottleneck=True),
+            ResidualBlock(512, 512, bottleneck=True),
+            ResidualBlock(512, 512, bottleneck=True),
+            ResidualBlock(512, 1024, bottleneck=True, downsampling=True, bottleneck_factor=2),
+            ResidualBlock(1024, 1024, bottleneck=True),
+            ResidualBlock(1024, 1024, bottleneck=True),
+            ResidualBlock(1024, 1024, bottleneck=True),
+            ResidualBlock(1024, 1024, bottleneck=True),
+            ResidualBlock(1024, 1024, bottleneck=True),
+            ResidualBlock(1024, 2048, bottleneck=True, downsampling=True, bottleneck_factor=2),
+            ResidualBlock(2048, 2048, bottleneck=True),
+            ResidualBlock(2048, 2048, bottleneck=True),
+            nn.AvgPool2d(7, stride=1),
+            Flatten(),
+            nn.Linear(2048, num_classes)
+        )
+        self._init_weights()
+
+    def forward(self, x):
+        return self.model(x)
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()

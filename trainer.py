@@ -11,11 +11,10 @@ class Trainer():
             optimizer, scheduler=None):
         self.model = model
         self.dataloader = dataloader
-        self.loss_fn = loss_fn
+        self.loss_fn = loss_fn.cuda()
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.num_epochs = num_epochs
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         now = datetime.utcnow().strftime("%d-%m_%H:%M")
         self.name = '%s_%s_%depochs_%s' % (self.dataloader.name, self.model.name,
                                                 self.num_epochs, now)
@@ -31,14 +30,16 @@ class Trainer():
             'test_loss': -1,
             'test_acc': -1
         }
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
 
     def check_validation_set(self):
         val_corrects = 0
         self.model.eval()
 
         for t, (x, y) in enumerate(self.dataloader.val):
-            x = x.to(self.device)
-            y = y.to(self.device)
+            x = x.cuda()
+            y = y.cuda()
             self.optimizer.zero_grad()
             with torch.set_grad_enabled(False):
                 scores = self.model(x)
@@ -54,8 +55,8 @@ class Trainer():
         self.model.eval()
 
         for t, (x, y) in enumerate(self.dataloader.test):
-            x = x.to(self.device)
-            y = y.to(self.device)
+            x = x.cuda()
+            y = y.cuda()
             self.optimizer.zero_grad()
             with torch.set_grad_enabled(False):
                 scores = self.model(x)
@@ -75,8 +76,8 @@ class Trainer():
             self.model_state['current_epoch'] = epoch
             running_corrects=0
             for t, (x, y) in enumerate(self.dataloader.train):
-                x = x.to(self.device)
-                y = y.to(self.device)
+                x = x.cuda()
+                y = y.cuda()
                 self.model.train()
                 self.optimizer.zero_grad()
 
@@ -103,7 +104,6 @@ class Trainer():
                     print('Epoch: %d | Step: %d | Train Loss: %.4f |'
                             ' Val Loss: %.4f | Val acc: %.2f%%' %
                             (epoch+1, step+1, loss.item(), val_loss.item(), val_acc))
-
                 step+=1
 
             train_acc = running_corrects.double() / len(self.dataloader.train)
@@ -120,6 +120,5 @@ class Trainer():
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'model_state': self.model_state
                 }, 'checkpoints/'+self.name+'.pt')
-
         self.check_test_set()
 
