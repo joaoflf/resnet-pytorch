@@ -7,8 +7,8 @@ class ResNetImported(nn.Module):
     def __init__(self, num_classes, pretrained=False):
         super().__init__()
         self.pretrained = pretrained
-        model = models.resnet18(pretrained = pretrained)
-
+        model = models.resnet50(pretrained=pretrained)
+        self.name = 'ResNet50Imported'
         #if pretrained, freeze layers
         if pretrained:
             model.eval()
@@ -18,7 +18,6 @@ class ResNetImported(nn.Module):
             #set last layer to output the number of classes
             model.fc = nn.Linear(model.fc.in_features, 1000)
             self.model = model
-
             self.extra_layers = nn.Sequential(
                     nn.BatchNorm1d(1000),
                     nn.ReLU(),

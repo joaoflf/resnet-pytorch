@@ -1,7 +1,5 @@
+from comet_ml import Experiment
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.autograd import Variable
 from datetime import datetime
 from tensorboardX import SummaryWriter
 
@@ -32,6 +30,10 @@ class Trainer():
         }
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
+        self.experiment = Experiment(
+                api_key="bctrYiho1G2hUui2u2BuHKZS3", project_name="general",
+                workspace="joaoflf")
+        self.experiment.log_parameters(self.model_state)
 
     def check_validation_set(self):
         val_corrects = 0
@@ -66,6 +68,8 @@ class Trainer():
         test_acc = test_corrects.double() / total
         print('Test Set : got %d / %d correct (%.2f%%) | Test Loss: %.4f \n' %
                 (test_corrects, total, test_acc * 100, test_loss.item()))
+        self.experiment.log_metric('test_accurary', test_acc)
+        self.experiment.log_metric('test_loss', test_loss.item())
 
     def train(self):
         step = 0
@@ -90,6 +94,7 @@ class Trainer():
 
                 running_corrects += torch.sum(preds == y)
                 self.writer.add_scalars('Metrics', {'loss': loss.item()}, step)
+                self.experiment.log_metric('loss', loss.item(), step=step)
 
                 if (t+1) % 100 == 0:
                     val_loss, val_corrects = self.check_validation_set()
@@ -99,15 +104,21 @@ class Trainer():
                             {'val_loss':val_loss.item(), 'val_accuracy':val_acc}, step)
                     self.model_state['train_loss'].append(loss.item())
                     self.model_state['val_loss'].append(val_loss.item())
-                    self.model_state['val_loss'].append(val_acc.item())
+                    self.model_state['val_acc'].append(val_acc.item())
+                    self.experiment.log_metric('val_loss', val_loss.item(), step=step)
+                    self.experiment.log_metric('val_accuracy', val_acc,
+                            step=step)
 
                     print('Epoch: %d | Step: %d | Train Loss: %.4f |'
                             ' Val Loss: %.4f | Val acc: %.2f%%' %
                             (epoch+1, step+1, loss.item(), val_loss.item(), val_acc))
+
                 step+=1
+                self.experiment.log_parameters(self.model_state)
 
             train_acc = running_corrects.double() / len(self.dataloader.train)
             self.writer.add_scalars('Metrics', {'train_accuracy':train_acc}, step)
+            self.experiment.log_metric('train_accurary', train_acc, step=step)
             self.model_state['train_acc'].append(train_acc)
 
             if self.scheduler:

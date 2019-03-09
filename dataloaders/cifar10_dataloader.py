@@ -16,9 +16,9 @@ class ChunkSampler(sampler.Sampler):
     def __len__(self):
         return self.num_samples
 
-NUM_TRAIN = 1000
+NUM_TRAIN = 49000
 NUM_VAL = 1000
-BATCH_SIZE = 40
+BATCH_SIZE = 60
 dtype = torch.cuda.FloatTensor
 
 class Cifar10DataLoader:
