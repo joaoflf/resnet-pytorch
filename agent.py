@@ -118,7 +118,7 @@ class Agent():
             print('Saving checkpoint for epoch %d' % (epoch+1))
             torch.save({
                 'model_state_dict': self.model.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
                 'model_state': self.model_state
                 }, 'checkpoints/'+self.experiment_name+'.pt')
 
