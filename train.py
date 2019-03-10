@@ -71,7 +71,6 @@ parser.add_argument(
 
 def main():
     args = parser.parse_args()
-    dtype = torch.cuda.FloatTensor
     model = None
     scheduler = None
 
@@ -86,13 +85,13 @@ def main():
         num_classes = 10
 
     if args.model == 'resnet34':
-        model = ResNet34(num_classes).type(dtype)
+        model = ResNet34(num_classes).cuda()
     elif args.model == 'resnet50':
-        model = ResNet50(num_classes).type(dtype)
+        model = ResNet50(num_classes).cuda()
     elif args.model == 'resnet50-preact':
-        model = ResNet50(num_classes, pre_activation=True).type(dtype)
+        model = ResNet50(num_classes, pre_activation=True).cuda()
     elif args.model == 'resnet50-imported':
-        model = ResNetImported(num_classes).type(dtype)
+        model = ResNetImported(num_classes).cuda()
 
     if args.optimizer == 'momentum':
         optimizer = optim.SGD(
@@ -104,12 +103,13 @@ def main():
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             'min',
-            patience=2
+            patience=2,
+            verbose=True
         )
     else:
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    loss_fn = nn.CrossEntropyLoss().type(dtype)
+    loss_fn = nn.CrossEntropyLoss().cuda()
     agent = Agent(model, dataloader)
     agent.train(loss_fn, args.epochs, optimizer, scheduler)
 

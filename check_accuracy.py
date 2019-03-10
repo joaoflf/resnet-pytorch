@@ -7,27 +7,6 @@ from dataloaders.dogs_dataloader import DogsDataLoader
 from dataloaders.cifar10_dataloader import Cifar10DataLoader
 from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
 
-def check_accuracy(model, loader):
-    correct = 0
-    total = 0
-    model.eval()
-
-    with torch.no_grad():
-        for x, y in loader:
-            x = x.cuda()
-            y = y.cuda()
-            outputs = model(x)
-            _, predicted = torch.max(outputs.data, 1)
-            total += y.size(0)
-            correct += (predicted == y).sum().item()
-
-            loss_fn = torch.nn.CrossEntropyLoss().type(dtype)
-            loss = loss_fn(outputs, y)
-
-    acc = float(correct)/total * 100
-    print('Got %d / %d correct (%.2f%%) | Loss: %.4f \n' %
-            (correct, total, acc, loss.item()))
-
 
 parser = argparse.ArgumentParser(description='Accuracy Checker')
 parser.add_argument('--dataset', metavar='DATASET', default='tiny_imagenet',

@@ -21,16 +21,16 @@ class Agent():
     def print_accuracy(self):
         print('Training Set:')
         print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.checkpoint['model_state']['train_acc'],
-                 self.checkpoint['model_state']['train_loss']))
+              % (self.model_state['train_acc'],
+                 self.model_state['train_loss']))
         print('Validation Set:')
         print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.checkpoint['model_state']['val_acc'],
-                 self.checkpoint['model_state']['val_loss']))
-        print('Training Set:')
+              % (self.model_state['val_acc'],
+                 self.model_state['val_loss']))
+        print('Test Set:')
         print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.checkpoint['model_state']['test_acc'],
-                 self.checkpoint['model_state']['test_loss']))
+              % (self.model_state['test_acc'],
+                 self.model_state['test_loss']))
 
     def calculate_accuracy(self, dataset_key, step=0):
         correct = 0
@@ -50,7 +50,7 @@ class Agent():
                 loss = loss_fn(outputs, y)
 
         acc = float(correct)/total * 100
-        self.log_metric(dataset_key+'_loss', loss, step)
+        self.log_metric(dataset_key+'_loss', loss.item(), step)
         self.log_metric(dataset_key+'_acc', acc, step)
         return acc, loss.item()
 
@@ -123,9 +123,15 @@ class Agent():
                 }, 'checkpoints/'+self.experiment_name+'.pt')
 
         print('\nTraining Complete, calculating accuracy and loss....')
-        train_loss, train_acc = self.calculate_accuracy('train', step)
-        val_loss, val_acc = self.calculate_accuracy('val', step)
-        test_loss, test_acc = self.calculate_accuracy('test', step)
+        self.calculate_accuracy('train', step)
+        self.calculate_accuracy('val', step)
+        self.calculate_accuracy('test', step)
+        self.print_accuracy()
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'model_state': self.model_state
+            }, 'checkpoints/'+self.experiment_name+'.pt')
 
     def log_metric(self, metric, value, step):
         self.writer.add_scalars('Metrics', {metric: value}, step)
