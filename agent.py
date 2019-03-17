@@ -5,7 +5,6 @@ from tensorboardX import SummaryWriter
 
 
 class Agent():
-
     def __init__(self, model, dataloader):
         self.model = model
         self.dataloader = dataloader
@@ -20,17 +19,14 @@ class Agent():
 
     def print_accuracy(self):
         print('Training Set:')
-        print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.model_state['train_acc'],
-                 self.model_state['train_loss']))
+        print('Accuracy: %.2f%% | Loss: %.4f' %
+              (self.model_state['train_acc'], self.model_state['train_loss']))
         print('Validation Set:')
-        print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.model_state['val_acc'],
-                 self.model_state['val_loss']))
+        print('Accuracy: %.2f%% | Loss: %.4f' % (self.model_state['val_acc'],
+                                                 self.model_state['val_loss']))
         print('Test Set:')
-        print('Accuracy: %.2f%% | Loss: %.4f'
-              % (self.model_state['test_acc'],
-                 self.model_state['test_loss']))
+        print('Accuracy: %.2f%% | Loss: %.4f' %
+              (self.model_state['test_acc'], self.model_state['test_loss']))
 
     def calculate_accuracy(self, dataset_key, step=0):
         correct = 0
@@ -49,9 +45,9 @@ class Agent():
                 loss_fn = torch.nn.CrossEntropyLoss().cuda()
                 loss = loss_fn(outputs, y)
 
-        acc = float(correct)/total * 100
-        self.log_metric(dataset_key+'_loss', loss.item(), step)
-        self.log_metric(dataset_key+'_acc', acc, step)
+        acc = float(correct) / total * 100
+        self.log_metric(dataset_key + '_loss', loss.item(), step)
+        self.log_metric(dataset_key + '_acc', acc, step)
         return acc, loss.item()
 
     def train(self, loss_fn, num_epochs, optimizer, scheduler=None):
@@ -73,13 +69,12 @@ class Agent():
             'test_acc': -1
         }
         self.experiment = Experiment(
-                api_key="bctrYiho1G2hUui2u2BuHKZS3",
-                project_name="general",
-                workspace="joaoflf"
-        )
+            api_key="bctrYiho1G2hUui2u2BuHKZS3",
+            project_name="general",
+            workspace="joaoflf")
 
         for epoch in range(num_epochs):
-            print('Epoch %d' % (epoch+1))
+            print('Epoch %d' % (epoch + 1))
             self.model_state['epochs'] = epoch
             running_corrects = 0
 
@@ -97,13 +92,13 @@ class Agent():
                 running_corrects += torch.sum(preds == y)
                 self.log_metric('train_loss', loss.item(), step)
 
-                if (t+1) % 100 == 0:
+                if (t + 1) % 100 == 0:
                     val_acc, val_loss = self.calculate_accuracy('val', step)
 
-                    print('Epoch: %d | Step: %d | Train Loss: %.4f |'
-                          ' Val Loss: %.4f | Val acc: %.2f%%' %
-                          (epoch+1, step+1, loss.item(),
-                              val_loss, val_acc))
+                    print(
+                        'Epoch: %d | Step: %d | Train Loss: %.4f |'
+                        ' Val Loss: %.4f | Val acc: %.2f%%' %
+                        (epoch + 1, step + 1, loss.item(), val_loss, val_acc))
 
                 step += 1
                 self.experiment.log_parameters(self.model_state)
@@ -112,15 +107,15 @@ class Agent():
             self.log_metric('train_acc', train_acc, step)
 
             if scheduler:
-                scheduler.step(loss)
+                scheduler.step()
             print('Epoch: %d | Train Loss: %.4f | Train Accuracy: %.2f%%' %
-                  (epoch+1, loss.item(), train_acc))
-            print('Saving checkpoint for epoch %d' % (epoch+1))
+                  (epoch + 1, loss.item(), train_acc))
+            print('Saving checkpoint for epoch %d' % (epoch + 1))
             torch.save({
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'model_state': self.model_state
-                }, 'checkpoints/'+self.experiment_name+'.pt')
+            }, 'checkpoints/' + self.experiment_name + '.pt')
 
         print('\nTraining Complete, calculating accuracy and loss....')
         self.calculate_accuracy('train', step)
@@ -131,7 +126,7 @@ class Agent():
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'model_state': self.model_state
-            }, 'checkpoints/'+self.experiment_name+'.pt')
+        }, 'checkpoints/' + self.experiment_name + '.pt')
 
     def log_metric(self, metric, value, step):
         self.writer.add_scalars('Metrics', {metric: value}, step)

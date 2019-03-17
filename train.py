@@ -100,11 +100,10 @@ def main():
             momentum=args.momentum,
             weight_decay=args.weight_decay
         )
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        scheduler = optim.lr_scheduler.StepLR(
             optimizer,
-            'min',
-            patience=2,
-            verbose=True
+            step_size=5,
+            gamma=0.1
         )
     else:
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
