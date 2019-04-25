@@ -47,7 +47,7 @@ def main():
     agent = Agent(model, dataloader)
     agent.load_checkpoint(args.checkpoint)
     # agent.check_accuracy()
-    agent.calculate_accuracy('test')
+    agent.print_accuracy()
 
 
 if __name__ == '__main__':
