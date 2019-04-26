@@ -1,7 +1,11 @@
 from comet_ml import Experiment
 import torch
 from datetime import datetime
+from ignite.engine import (Events, create_supervised_trainer,
+                           create_supervised_evaluator)
+from ignite.metrics import Accuracy, Loss
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
 
 
 class Agent():
@@ -10,6 +14,8 @@ class Agent():
         self.dataloader = dataloader
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.log_interval = 10
 
     def load_checkpoint(self, path):
         self.checkpoint = torch.load(path)
@@ -56,7 +62,6 @@ class Agent():
         self.model_state[metric] = value
 
     def train(self, loss_fn, num_epochs, optimizer, scheduler=None):
-        step = 0
         self.loss_fn = loss_fn
         now = datetime.utcnow().strftime("%d-%m_%H:%M")
         self.experiment_name = '%s_%s_%depochs_%s' \
@@ -78,57 +83,78 @@ class Agent():
             project_name="general",
             workspace="joaoflf")
 
-        for epoch in range(num_epochs):
-            print('Epoch %d' % (epoch + 1))
-            self.model_state['epochs'] = epoch
-            running_corrects = 0
+        desc = "ITERATION - loss: {:.2f}"
+        pbar = tqdm(
+            initial=0,
+            leave=False,
+            total=len(self.dataloader.train),
+            desc=desc.format(0))
 
-            for t, (x, y) in enumerate(self.dataloader.train):
-                x = x.cuda()
-                y = y.cuda()
-                self.model.train()
-                optimizer.zero_grad()
-                scores = self.model(x)
-                loss = loss_fn(scores, y)
-                _, preds = torch.max(scores, 1)
-                loss.backward()
-                optimizer.step()
+        trainer = create_supervised_trainer(self.model, optimizer,
+                                            self.loss_fn, self.device)
+        evaluator = create_supervised_evaluator(
+            self.model,
+            metrics={
+                'accuracy': Accuracy(),
+                'loss': Loss(self.loss_fn)
+            },
+            device=self.device)
 
-                running_corrects += torch.sum(preds == y)
-                self.log_metric('train_loss', loss.item(), step)
+        @trainer.on(Events.ITERATION_COMPLETED)
+        def log_training_loss(engine):
+            iter = (engine.state.iteration - 1) % len(
+                self.dataloader.train) + 1
+            if iter % self.log_interval == 0:
+                pbar.desc = desc.format(engine.state.output)
+                pbar.update(self.log_interval)
+            self.log_metric('train_loss', engine.state.output,
+                            engine.state.iteration)
 
-                if (t + 1) % 100 == 0:
-                    val_acc, val_loss = self.calculate_accuracy('val', step)
+        @trainer.on(Events.EPOCH_COMPLETED)
+        def log_training_results(engine):
+            pbar.refresh()
+            evaluator.run(self.dataloader.train)
+            metrics = evaluator.state.metrics
+            avg_accuracy = metrics['accuracy']
+            avg_loss = metrics['loss']
+            tqdm.write(
+                "\nTraining Results - Epoch: {}  Accuracy: {:.2f} Loss: {:.2f}"
+                .format(engine.state.epoch, avg_accuracy, avg_loss))
 
-                    print(
-                        'Epoch: %d | Step: %d | Train Loss: %.4f |'
-                        ' Val Loss: %.4f | Val acc: %.2f%%' %
-                        (epoch + 1, step + 1, loss.item(), val_loss, val_acc))
+        @trainer.on(Events.EPOCH_COMPLETED)
+        def log_validation_results(engine):
+            evaluator.run(self.dataloader.val)
+            metrics = evaluator.state.metrics
+            avg_accuracy = metrics['accuracy']
+            avg_loss = metrics['loss']
+            tqdm.write(
+                "Val Results - Epoch: {} Accuracy: {:.2f} Loss: {:.2f}".format(
+                    engine.state.epoch, avg_accuracy, avg_loss))
 
-                step += 1
-                self.experiment.log_parameters(self.model_state)
+            pbar.n = pbar.last_print_n = 0
 
-            train_acc = running_corrects.double() / len(self.dataloader.train)
-            self.log_metric('train_acc', train_acc, step)
-
-            if scheduler:
-                scheduler.step()
-            print('Epoch: %d | Train Loss: %.4f | Train Accuracy: %.2f%%' %
-                  (epoch + 1, loss.item(), train_acc))
-            print('Saving checkpoint for epoch %d' % (epoch + 1))
+        @trainer.on(Events.EPOCH_COMPLETED)
+        def save_checkpoint(engine):
+            self.model_state['epochs'] = engine.state.epoch
             torch.save({
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'model_state': self.model_state
             }, 'checkpoints/' + self.experiment_name + '.pt')
 
-        print('\nTraining Complete, calculating accuracy and loss....')
-        self.calculate_accuracy('train', step)
-        self.calculate_accuracy('val', step)
-        self.calculate_accuracy('test', step)
-        self.print_accuracy()
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'model_state': self.model_state
-        }, 'checkpoints/' + self.experiment_name + '.pt')
+        @trainer.on(Events.COMPLETED)
+        def calculate_final_metrics(engine):
+            print('\nTraining Complete, calculating accuracy and loss....')
+            self.calculate_accuracy('train', engine.state.iteration)
+            self.calculate_accuracy('val', engine.state.iteration)
+            self.calculate_accuracy('test', engine.state.iteration)
+            self.print_accuracy()
+            pbar.close()
+            self.writer.close()
+            torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'model_state': self.model_state
+            }, 'checkpoints/' + self.experiment_name + '.pt')
+
+        trainer.run(self.dataloader.train, max_epochs=num_epochs)
