@@ -2,6 +2,7 @@ from comet_ml import Experiment
 import torch
 from datetime import datetime
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
 
 
 class Agent():
@@ -16,6 +17,14 @@ class Agent():
         self.model.load_state_dict(self.checkpoint['model_state_dict'])
         self.model_state = self.checkpoint['model_state']
         print('Loaded checkpoint at epoch %d' % self.model_state['epochs'])
+
+    def save_checkpoint(self):
+        if self.log_and_save:
+            torch.save({
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'model_state': self.model_state
+            }, 'checkpoints/' + self.experiment_name + '.pt')
 
     def print_accuracy(self):
         print('Training Set:')
@@ -51,35 +60,42 @@ class Agent():
         return acc, loss.item()
 
     def log_metric(self, metric, value, step):
-        self.writer.add_scalars('Metrics', {metric: value}, step)
-        self.experiment.log_metric(metric, value, step=step)
         self.model_state[metric] = value
+        if self.log_and_save:
+            self.writer.add_scalars('Metrics', {metric: value}, step)
+            self.experiment.log_metric(metric, value, step=step)
 
-    def train(self, loss_fn, num_epochs, optimizer, scheduler=None):
+    def train(self,
+              loss_fn,
+              num_epochs,
+              optimizer,
+              scheduler=None,
+              log_and_save=True):
+
         step = 0
         self.loss_fn = loss_fn
+        self.optimizer = optimizer
+        self.log_and_save = log_and_save
         now = datetime.utcnow().strftime("%d-%m_%H:%M")
         self.experiment_name = '%s_%s_%depochs_%s' \
             % (self.dataloader.name, self.model.name, num_epochs, now)
-        self.writer = SummaryWriter('runs/' + self.experiment_name)
         self.model_state = {
             'dataset': self.dataloader.name,
             'model': self.model.name,
-            'epochs': 0,
-            'train_loss': -1,
-            'train_acc': -1,
-            'val_loss': -1,
-            'val_acc': -1,
-            'test_loss': -1,
-            'test_acc': -1
         }
-        self.experiment = Experiment(
-            api_key="bctrYiho1G2hUui2u2BuHKZS3",
-            project_name="general",
-            workspace="joaoflf")
+        if log_and_save:
+            self.writer = SummaryWriter('runs/' + self.experiment_name)
+            self.experiment = Experiment(
+                api_key="bctrYiho1G2hUui2u2BuHKZS3",
+                project_name="general",
+                workspace="joaoflf")
 
         for epoch in range(num_epochs):
-            print('Epoch %d' % (epoch + 1))
+
+            pbar = tqdm(
+                total=len(self.dataloader.train),
+                desc="Epoch {}".format(epoch + 1),
+                position=epoch)
             self.model_state['epochs'] = epoch
             running_corrects = 0
 
@@ -94,41 +110,41 @@ class Agent():
                 loss.backward()
                 optimizer.step()
 
+                train_acc = 0
                 running_corrects += torch.sum(preds == y)
                 self.log_metric('train_loss', loss.item(), step)
+                pbar.update(1)
 
                 if (t + 1) % 100 == 0:
                     val_acc, val_loss = self.calculate_accuracy('val', step)
-
-                    print(
-                        'Epoch: %d | Step: %d | Train Loss: %.4f |'
-                        ' Val Loss: %.4f | Val acc: %.2f%%' %
-                        (epoch + 1, step + 1, loss.item(), val_loss, val_acc))
-
+                    pbar.set_postfix(
+                        train_loss=loss.item(),
+                        train_acc="{:.2f}%".format(train_acc),
+                        val_loss=val_loss,
+                        val_acc="{:.2f}%".format(val_acc))
+                    self.log_metric('val_loss', val_loss, step)
                 step += 1
-                self.experiment.log_parameters(self.model_state)
 
             train_acc = running_corrects.double() / len(self.dataloader.train)
+            val_acc, val_loss = self.calculate_accuracy('val', step)
+            pbar.set_postfix(
+                train_loss=loss.item(),
+                train_acc="{:.2f}%".format(train_acc),
+                val_loss=val_loss,
+                val_acc="{:.2f}%".format(val_acc))
+            pbar.close()
             self.log_metric('train_acc', train_acc, step)
 
             if scheduler:
                 scheduler.step()
-            print('Epoch: %d | Train Loss: %.4f | Train Accuracy: %.2f%%' %
-                  (epoch + 1, loss.item(), train_acc))
-            print('Saving checkpoint for epoch %d' % (epoch + 1))
-            torch.save({
-                'model_state_dict': self.model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'model_state': self.model_state
-            }, 'checkpoints/' + self.experiment_name + '.pt')
 
+            self.save_checkpoint()
+
+        for i in range(int(num_epochs/2)):
+            print('\n')
         print('\nTraining Complete, calculating accuracy and loss....')
         self.calculate_accuracy('train', step)
         self.calculate_accuracy('val', step)
         self.calculate_accuracy('test', step)
         self.print_accuracy()
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'model_state': self.model_state
-        }, 'checkpoints/' + self.experiment_name + '.pt')
+        self.save_checkpoint()

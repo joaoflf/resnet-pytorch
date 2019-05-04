@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from models.resnet import ResNet34, ResNet50
 from models.resnet_imported import ResNetImported
+from models.resnext import ResNext29
+from models.resnext29 import resnext29_8x64d
 from dataloaders.dogs_dataloader import DogsDataLoader
 from dataloaders.cifar10_dataloader import Cifar10DataLoader
 from dataloaders.tiny_imagenet_dataloader import TinyImagenetDataLoader
@@ -32,7 +34,8 @@ parser.add_argument(
         'resnet34',
         'resnet50',
         'resnet50-imported',
-        'resnet50-preact'
+        'resnet50-preact',
+        'resnext29'
     ],
     help='name of model arch  (default: resnet34)'
 )
@@ -67,6 +70,13 @@ parser.add_argument(
     metavar='W', help='weight decay (default: 1e-4)',
     dest='weight_decay'
 )
+parser.add_argument(
+    '--log-and-save',
+    default=False,
+    type=bool,
+    metavar='L',
+    help='log data and save checkpoints'
+)
 
 
 def main():
@@ -92,6 +102,9 @@ def main():
         model = ResNet50(num_classes, pre_activation=True).cuda()
     elif args.model == 'resnet50-imported':
         model = ResNetImported(num_classes).cuda()
+    elif args.model == 'resnext29':
+        # model = ResNext29(num_classes).cuda()
+        model = resnext29_8x64d(num_classes).cuda()
 
     if args.optimizer == 'momentum':
         optimizer = optim.SGD(
@@ -110,7 +123,7 @@ def main():
 
     loss_fn = nn.CrossEntropyLoss().cuda()
     agent = Agent(model, dataloader)
-    agent.train(loss_fn, args.epochs, optimizer, scheduler)
+    agent.train(loss_fn, args.epochs, optimizer, scheduler, args.log_and_save)
 
 
 if __name__ == '__main__':

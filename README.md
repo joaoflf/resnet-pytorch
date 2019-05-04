@@ -12,3 +12,6 @@
 - [x] Build Resnet50 (resnet34 with bottlenecks)
 - [x] Evaluate again o Tiny Imagenet
 - [x] Try Dogs and Cifar10 (follow paper for cifar10)
+- [x] Implement ResNet50 with pre-activation
+- [x] Implement ResNext29
+
